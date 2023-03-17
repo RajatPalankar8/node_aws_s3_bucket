@@ -4,8 +4,8 @@ const aws = require('aws-sdk');
 const ytdl = require('ytdl-core');
 let s3 = new aws.S3({
     region: 'us-east-2',
-    accessKeyId: 'AKIAT22YDBH3L6Q6K25X',
-    secretAccessKey: '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'
+    accessKeyId: 'Accesskey',
+    secretAccessKey: 'secretAccessKey'
 });
 
 // check if bucket exist, If not then create it.
@@ -39,6 +39,19 @@ router.post("/createBucket", (req, res) => {
 // Get list of all S3 Buckets
 router.get('/getAllBuckets', (req, res) => {
     s3.listBuckets({}, (err, success) => {
+        if (err) {
+            console.log(err);
+            res.json({ status: false, err })
+        }
+        res.json({ status: true, success })
+    })
+})
+
+// Get Object/Files list of from a S3 Bucket
+router.get('/getAllFilesList', (req, res) => {
+    s3.listObjectsV2({
+        Bucket: 'rajatbuckettask2'
+    }, (err, success) => {
         if (err) {
             console.log(err);
             res.json({ status: false, err })
@@ -121,6 +134,27 @@ router.delete("/deleteBucket", async (req, res) => {
         res.json({ status: true, success: success })
     })
 });
+
+
+// Delete S3 Bucket Object by File Name if it empty
+router.post("/deleteFile", async (req, res) => {
+
+    const bucketName = req.body.bucketName;
+    const fileName = req.body.fileName;
+
+    s3.deleteObject({
+        Bucket: bucketName,
+        Key:fileName
+    }, (err, success) => {
+        if (err) {
+            console.log(err);
+            return res.json({ status: false, message: err })
+        }
+        console.log(success);
+        res.json({ status: true, success: success })
+    })
+});
+
 
 //download file from S3 bucket
 router.get("/download/:filename", async (req, res) => {
