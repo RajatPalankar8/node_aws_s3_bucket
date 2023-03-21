@@ -2,7 +2,12 @@ const router = require('express').Router();
 const fs = require('fs');
 const aws = require('aws-sdk');
 const path = require('path');
-const Auth= require('../middleWare/auth.middleware')
+const Auth= require('../middleWare/auth.middleware');
+const multer = require("multer");
+const {upload} = require('../config/multerConfig')
+
+
+
 let s3 = new aws.S3({
     region: 'us-east-2',
     accessKeyId: 'Accesskey',
@@ -166,12 +171,16 @@ router.delete("/deleteBucket", async (req, res) => {
 
 //---------------------GET OPERATION  Download Files/Object ---------------------
 //download file from S3 bucket
-router.get("/download/:filename", async (req, res) => {
-    const fileParams = req.params.filename;
-    let data = await s3.getObject({ Bucket: "rajatbuckettask2", Key: fileParams }).promise();
-    res.send(data.Body);
-});
+// router.get("/download/:filename", async (req, res) => {
+//     const fileParams = req.params.filename;
+//     let data = await s3.getObject({ Bucket: "rajatbuckettask2", Key: fileParams }).promise();
+//     res.send(data.Body);
+// });
 
+//--------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------
+
+// Create a Bucket 
 router.post("/createFolderBucket", async (req, res) => {
     const folderName = req.body.folderName;
     if (!folderName) {
@@ -198,30 +207,64 @@ router.post("/createFolderBucket", async (req, res) => {
     }
 });
 
+// get Bucket List
 router.get("/getAllFolderBucket", Auth.userAuthMiddleWare,async (req, res) => {
     //joining path of directory 
     const directoryPath = path.join('bucketFolder');
     let fileList = [];
     //passsing directoryPath and callback function
-    fs.readdir(directoryPath, function (err, files) {
-        //handling error
+    fs.readdir(directoryPath, (err, files) => {
         if (err) {
-            return console.log('Unable to scan directory: ' + err);
+          console.error(err);
+          return;
         }
-        //listing all files using forEach
-        files.forEach(function (file) {
-            // Do whatever you want to do with the file
-            fileList.push(file);
-            console.log(file);
+      
+        const directories = files.filter(file => {
+          const filePath = path.join(directoryPath, file);
+          return fs.statSync(filePath).isDirectory();
         });
-        return res.json({ status: true, success: fileList });
+      
+        console.log(directories);
+        return res.json({ status: true, success: directories });
     });
 });
 
+// get list of all files from a Particular bucket
+router.get("/getAllFilesFromParticularBucket", Auth.userAuthMiddleWare,async (req, res) => {
+    try {
+    const bucketName = req.body.bucketName;
+    const directoryPath = path.join(`bucketFolder/${bucketName}`);
+    fs.readdir(directoryPath, (err, files) => {
+        if (err) {
+          return res.json({ status: false, message: `${bucketName}, No Such Bucket Found` });
+        }
+      
+        const allfiles = files.filter(file => {
+          const filePath = path.join(directoryPath, file);
+          return fs.statSync(filePath).isFile();
+        });
+      
+        console.log(allfiles);
+        return res.json({ status: true, filesList: allfiles });
+    });
+} catch (error) {
+    console.log("error------->>",error);
+}
+});
 
-router.get('/downloadFile/:filename',(req,res)=>{
-    const { filename } = req.params;
-    const filePath = `bucketFolder/upload1/${filename}`;
+//Upload Files to a Bucket
+router.post("/uploadFileInBucket", upload().single("myFile"), async (req, res) => {
+    console.log("/uploadFile");
+    // Stuff to be added later
+    console.log(req.file);
+  });
+
+
+  //get Files from a Bucket
+router.get('/downloadFile/:filename/:folderName',(req,res)=>{
+
+    const { filename,folderName } = req.params;
+    const filePath = `bucketFolder/${folderName}/${filename}`;
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: 'File not found' });
@@ -232,7 +275,50 @@ router.get('/downloadFile/:filename',(req,res)=>{
      fileStream.pipe(res);
 });
 
+router.post("/deleteFolderBucket", async (req, res) => {
+    const folderName = req.body.folderName;
+    if (!folderName) {
+        return res.json({ status: false, message: "Folder Name is Mandatory" });
+    }
+    const rootFolder = "bucketFolder";
+    const folderpath = `${rootFolder}/${folderName}`;
+    try {
+        if (fs.existsSync(rootFolder)) {
+            if (fs.existsSync(folderpath)) {
+                fs.rmdirSync(folderpath);
+                return res.json({ status: true, success: "Directory Deleted" });
+            }
+        } 
+        return res.json({ status: true, success: "Directory Not Found" });
+    } catch (error) {
+        return res.json({ status: true, success: "Directory can't be deleted because it Not Empty" });
+    }
+});
 
+router.post("/deleteFileBucket", async (req, res) => {
+    const folderName = req.body.folderName;
+    const fileName = req.body.fileName;
+    if (!folderName) {
+        return res.json({ status: false, message: "Folder Name is Mandatory" });
+    }
+    if (!fileName) {
+        return res.json({ status: false, message: "File ame is Mandatory" });
+    }
+    const rootFolder = "bucketFolder";
+    const folderpath = `${rootFolder}/${folderName}/${fileName}`;
+    try {
+        fs.unlink(folderpath, (err) => {
+            if (err) {
+              console.error(err);
+              return;
+            }        
+            console.log('File deleted successfully');
+       });
+        return res.json({ status: true, success: "File deleted successfully" });
+    } catch (error) {
+        return res.json({ status: true, success: error});
+    }
+});
 
 
 module.exports = router;
