@@ -3,6 +3,7 @@ const UserModel = require('../model/user.model');
 exports.userAuthMiddleWare = async (req, res, next) => {
     try {
         const apiKey = req.query.apiKey;
+        console.log("--------------??>>>>",req);
         if (!apiKey) {
             return res.status(400).json({ status: false, success: 'apiKey is mandatory' });
         }
