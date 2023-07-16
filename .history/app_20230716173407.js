@@ -1,6 +1,8 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const bucketRouter = require('./routes/bucket.router');
+const S3Operation = require("./routes/s3Operation.router");
+const SimilarToS3 = require("./routes/similarToS3.router");
+const userRouter = require("./routes/user.router");
 const path = require("path");
 const app = express();
 
@@ -10,7 +12,9 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(`${__dirname}/public`));
 
 
-app.use("/",bucketRouter);
+app.use("/",S3Operation);
+app.use("/",userRouter);
+app.use("/",SimilarToS3);
 
 app.use("/", (req, res) => {
     res.status(200).render("index");
